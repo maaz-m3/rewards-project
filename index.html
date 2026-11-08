@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PwC Workforce Consulting - Rewards & Compensation Dashboard</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS (xlsx) for Excel Import -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        pwcOrange: '#FD5108',
+                        pwcDark: '#2D2D2D',
+                        pwcGray: '#F4F4F4',
+                        pwcHover: '#D94304',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+</head>
+<body class="bg-pwcGray text-pwcDark font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- Top Header Bar -->
+    <header class="bg-white border-b border-gray-200 px-6 py-3 flex justify-between items-center shadow-sm">
+        <div class="flex items-center space-x-5">
+            <!-- Official PwC Logo SVG -->
+            <div class="flex items-center">
+                <svg class="h-10 w-auto" viewBox="0 0 180 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Orange Accent Rectangles -->
+                    <polygon points="95,38 128,38 136,24 103,24" fill="#FD5108"/>
+                    <polygon points="128,24 165,24 173,10 136,10" fill="#FD5108"/>
+                    <!-- Lowercase 'pwc' Typography -->
+                    <text x="8" y="92" font-family="Georgia, 'Times New Roman', serif" font-weight="bold" font-style="italic" font-size="68" fill="#000000" letter-spacing="-3">pwc</text>
+                </svg>
+            </div>
+            <div class="h-8 w-px bg-gray-300"></div>
+            <div>
+                <h1 class="text-base font-bold tracking-tight text-pwcDark">Workforce Consulting | Rewards Framework</h1>
+                <p class="text-xs text-gray-500">Market Compensation, Benchmarking & Rationalization Dashboard</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-4">
+            <span id="data-status" class="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1 rounded-full font-medium">Default Dataset (EPS 1 - EPS 5)</span>
+            <label class="cursor-pointer bg-pwcOrange hover:bg-pwcHover text-white text-xs px-4 py-2 rounded shadow-sm transition font-semibold flex items-center space-x-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                <span>Import Excel Data</span>
+                <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" class="hidden" onchange="handleExcelImport(event)">
+            </label>
+        </div>
+    </header>
+
+    <!-- Main Layout Container -->
+    <div class="flex flex-1 overflow-hidden">
+        
+        <!-- Left Sidebar Navigation -->
+        <aside class="w-72 bg-white border-r border-gray-200 flex flex-col justify-between shadow-sm">
+            <nav class="p-4 space-y-2">
+                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 mb-2">Modules</p>
+                
+                <button onclick="switchTab('methodology')" id="btn-methodology" class="tab-btn w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-pwcOrange hover:text-white transition group active-tab bg-pwcOrange text-white">
+                    <svg class="w-5 h-5 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    <span>1. Methodology & Phases</span>
+                </button>
+
+                <button onclick="switchTab('asis')" id="btn-asis" class="tab-btn w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-pwcOrange hover:text-white transition group">
+                    <svg class="w-5 h-5 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    <span>2. As-Is Rewards Analysis</span>
+                </button>
+
+                <button onclick="switchTab('benchmarking')" id="btn-benchmarking" class="tab-btn w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-pwcOrange hover:text-white transition group">
+                    <svg class="w-5 h-5 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                    <span>3. Industry Benchmarking</span>
+                </button>
+
+                <button onclick="switchTab('tobe')" id="btn-tobe" class="tab-btn w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-pwcOrange hover:text-white transition group">
+                    <svg class="w-5 h-5 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    <span>4. Current vs. To-Be Analysis</span>
+                </button>
+            </nav>
+            <div class="p-4 border-t border-gray-200 text-xs text-gray-500">
+                <p class="font-semibold text-gray-700">A.F. Ferguson & Co. | PwC</p>
+                <p>People & Organisation Alignment</p>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 overflow-y-auto p-8">
+
+            <!-- TAB 1: METHODOLOGY -->
+            <section id="tab-methodology" class="tab-content active space-y-6">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <div class="border-l-4 border-pwcOrange pl-4 mb-4">
+                        <h2 class="text-2xl font-bold text-pwcDark">Rewards: Market Compensation & Benefits Benchmarking Methodology[span_0](start_span)[span_0](end_span)</h2>
+                        <p class="text-sm text-gray-600">Unlocking Market Intelligence to Reform and Rationalize Compensation[span_1](start_span)[span_1](end_span)</p>
+                    </div>
+                    <p class="text-sm text-gray-700 leading-relaxed">
+                        Our workforce consulting framework follows a 3-pillar diagnostic and structural design approach, ensuring market competitiveness, internal equity, and financial sustainability[span_2](start_span)[span_2](end_span).
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Phase 1 -->
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:border-pwcOrange transition group">
+                        <div class="w-10 h-10 rounded-lg bg-orange-100 text-pwcOrange flex items-center justify-center font-bold mb-4 group-hover:bg-pwcOrange group-hover:text-white transition">1</div>
+                        <h3 class="font-bold text-lg mb-2 text-pwcDark">Getting Understanding[span_3](start_span)[span_3](end_span)</h3>
+                        <ul class="text-xs text-gray-600 space-y-2 list-disc pl-4">
+                            <li>Obtain an understanding of overall business strategy, future objectives, financial goals, and rewards culture[span_4](start_span)[span_4](end_span).</li>
+                            <li>Review existing grading, compensation, benefits, and bonus structures through discussions with HR and key rewards personnel[span_5](start_span)[span_5](end_span).</li>
+                            <li>Conduct initial discussions on expected Rewards Philosophy, employee recognition, retention objectives, and future market positioning[span_6](start_span)[span_6](end_span).</li>
+                        </ul>
+                    </div>
+
+                    <!-- Phase 2 -->
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:border-pwcOrange transition group">
+                        <div class="w-10 h-10 rounded-lg bg-orange-100 text-pwcOrange flex items-center justify-center font-bold mb-4 group-hover:bg-pwcOrange group-hover:text-white transition">2</div>
+                        <h3 class="font-bold text-lg mb-2 text-pwcDark">Benchmarking Design, Data Collection & Validation[span_7](start_span)[span_7](end_span)</h3>
+                        <ul class="text-xs text-gray-600 space-y-2 list-disc pl-4">
+                            <li>Conduct a desktop diagnostic review of base pay, allowances, bonuses, and core benefits[span_8](start_span)[span_8](end_span).</li>
+                            <li>Benchmark existing rewards elements and reward mechanisms against industry best practices[span_9](start_span)[span_9](end_span).</li>
+                            <li>Analyze compensation and allowances data (vehicle, retirement, fuel, etc.) to develop grade-wise compensation analysis and detailed benefits review[span_10](start_span)[span_10](end_span).</li>
+                        </ul>
+                    </div>
+
+                    <!-- Phase 3 -->
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:border-pwcOrange transition group">
+                        <div class="w-10 h-10 rounded-lg bg-orange-100 text-pwcOrange flex items-center justify-center font-bold mb-4 group-hover:bg-pwcOrange group-hover:text-white transition">3</div>
+                        <h3 class="font-bold text-lg mb-2 text-pwcDark">Rewards Structure and Report Development[span_11](start_span)[span_11](end_span)</h3>
+                        <ul class="text-xs text-gray-600 space-y-2 list-disc pl-4">
+                            <li>Recommend and design an appropriate pay structure by analyzing market grades, midpoints, and percentiles[span_12](start_span)[span_12](end_span).</li>
+                            <li>Develop aligned pay ranges and grading structures that define compensation limits and assess employee fitment to identify outliers[span_13](start_span)[span_13](end_span).</li>
+                            <li>Present potential average cost-to-company and overall financial impact based on recommendations[span_14](start_span)[span_14](end_span).</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-center justify-between">
+                    <div>
+                        <h4 class="font-bold text-sm text-amber-900">Deliverable: Rewards Framework Report[span_15](start_span)[span_15](end_span)</h4>
+                        <p class="text-xs text-amber-700">Submit and review draft aligned with strategic objectives, incorporate feedback, and submit revised draft for finalization[span_16](start_span)[span_16](end_span).</p>
+                    </div>
+                    <button onclick="switchTab('asis')" class="bg-pwcOrange text-white text-xs px-4 py-2 rounded-lg font-medium hover:bg-pwcHover transition">Explore As-Is Analysis &rarr;</button>
+                </div>
+            </section>
+
+            <!-- TAB 2: AS-IS REWARDS ANALYSIS -->
+            <section id="tab-asis" class="tab-content space-y-6">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
+                    <div>
+                        <h2 class="text-2xl font-bold text-pwcDark">Key Insights & Findings – As-Is Structure[span_17](start_span)[span_17](end_span)</h2>
+                        <p class="text-sm text-gray-600">Diagnostic analysis across Management Level Grades (EPS 1 – EPS 5): Bandwidth, Overlap, Progression & Structural Outliers[span_18](start_span)[span_18](end_span).</p>
+                    </div>
+                    <div class="bg-gray-100 px-4 py-2 rounded-lg text-right">
+                        <span class="text-xs text-gray-500 block">Interactive Percentile Selector</span>
+                        <span id="slider-val-display" class="font-bold text-pwcOrange text-lg">P50 (Median)</span>
+                    </div>
+                </div>
+
+                <!-- 4 Diagnostic Pillars from Reference Slide (Hover-enabled cards) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                    
+                    <!-- Pillar 1: Minimal Overlap between Grades -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 hover:border-pwcOrange hover:shadow-md transition group flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="text-xs font-bold uppercase tracking-wider text-pwcOrange bg-orange-50 px-2.5 py-1 rounded">01. Band Overlap</span>
+                                <span class="text-xs text-gray-400 group-hover:text-pwcOrange transition">Hover Details</span>
+                            </div>
+                            <h3 class="font-bold text-base text-pwcDark mb-2">Minimal Overlap between Grades[span_19](start_span)[span_19](end_span)</h3>
+                            <p class="text-xs text-gray-600 mb-4 leading-relaxed">
+                                Overlap between adjacent EPS grades is inconsistent, ranging from minimal <span class="font-bold text-pwcDark">13% – 15%</span> (EPS 1–2) to <span class="font-bold text-pwcDark">23% – 25%</span> (EPS 3–4), restricting lateral progression[span_20](start_span)[span_20](end_span).
+                            </p>
+                        </div>
+                        <!-- Visual Mini Diagram: Overlapping Bars -->
+                        <div class="bg-gray-50 p-3 rounded-lg border border-gray-100 space-y-1.5">
+                            <div class="flex items-center text-[10px] font-medium text-gray-500">
+                                <span class="w-10">EPS 5</span>
+                                <div class="flex-1 bg-gray-200 h-2.5 rounded overflow-hidden flex justify-end"><div class="bg-pwcDark w-5/12 h-full"></div></div>
+                            </div>
+                            <div class="flex items-center text-[10px] font-medium text-gray-500">
+                                <span class="w-10">EPS 4</span>
+                                <div class="flex-1 bg-gray-200 h-2.5 rounded overflow-hidden flex justify-center"><div class="bg-pwcOrange w-5/12 h-full ml-12"></div></div>
+                            </div>
+                            <div class="flex items-center text-[10px] font-medium text-gray-500">
+                                <span class="w-10">EPS 3</span>
+                                <div class="flex-1 bg-gray-200 h-2.5 rounded overflow-hidden flex justify-center"><div class="bg-pwcOrange/80 w-5/12 h-full mr-4"></div></div>
+                            </div>
+                            <div class="flex items-center text-[10px] font-medium text-gray-500">
+                                <span class="w-10">EPS 2</span>
+                                <div class="flex-1 bg-gray-200 h-2.5 rounded overflow-hidden flex justify-start"><div class="bg-pwcDark/70 w-5/12 h-full ml-6"></div></div>
+                            </div>
+                            <div class="flex items-center text-[10px] font-medium text-gray-500">
+                                <span class="w-10">EPS 1</span>
+                                <div class="flex-1 bg-gray-200 h-2.5 rounded overflow-hidden flex justify-start"><div class="bg-gray-500 w-4/12 h-full"></div></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pillar 2: Duplication of Designation Across Grade -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 hover:border-pwcOrange hover:shadow-md transition group flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="text-xs font-bold uppercase tracking-wider text-pwcOrange bg-orange-50 px-2.5 py-1 rounded">02. Grade Duplication</span>
+                                <span class="text-xs text-gray-400 group-hover:text-pwcOrange transition">Pay Spread</span>
+                            </div>
+                            <h3 class="font-bold text-base text-pwcDark mb-2">Duplication of Designation Across Grade[span_21](start_span)[span_21](end_span)</h3>
+                            <p class="text-xs text-gray-600 mb-3 leading-relaxed">
+                                Identical titles appear in multiple EPS grades, causing severe internal pay range variance for the same role[span_22](start_span)[span_22](end_span):
+                            </p>
+                        </div>
+                        <!-- Visual Mini Table -->
+                        <div class="bg-gray-50 rounded-lg border border-gray-100 divide-y divide-gray-200 text-xs">
+                            <div class="flex justify-between items-center p-2.5 hover:bg-orange-50/50 transition">
+                                <span class="font-semibold text-pwcDark">Manager[span_23](start_span)[span_23](end_span)</span>
+                                <span class="font-bold text-pwcOrange bg-white px-2 py-0.5 rounded border border-gray-200">97.9% spread[span_24](start_span)[span_24](end_span)</span>
+                            </div>
+                            <div class="flex justify-between items-center p-2.5 hover:bg-orange-50/50 transition">
+                                <span class="font-semibold text-pwcDark">Asst. Exec Engineer[span_25](start_span)[span_25](end_span)</span>
+                                <span class="font-bold text-rose-600 bg-white px-2 py-0.5 rounded border border-gray-200">466% spread[span_26](start_span)[span_26](end_span)</span>
+                            </div>
+                            <div class="flex justify-between items-center p-2.5 hover:bg-orange-50/50 transition">
+                                <span class="font-semibold text-pwcDark">Officer[span_27](start_span)[span_27](end_span)</span>
+                                <span class="font-bold text-pwcOrange bg-white px-2 py-0.5 rounded border border-gray-200">107.9% spread[span_28](start_span)[span_28](end_span)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pillar 3: Misleading Nomenclature or Job Titles -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 hover:border-pwcOrange hover:shadow-md transition group flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="text-xs font-bold uppercase tracking-wider text-pwcOrange bg-orange-50 px-2.5 py-1 rounded">03. Nomenclature</span>
+                                <span class="text-xs text-gray-400 group-hover:text-pwcOrange transition">Title Mapping</span>
+                            </div>
+                            <h3 class="font-bold text-base text-pwcDark mb-2">Misleading Nomenclature or Job Titles[span_29](start_span)[span_29](end_span)</h3>
+                            <p class="text-xs text-gray-600 mb-3 leading-relaxed">
+                                Roles with similar job scope use unstandardized titles, amplifying band disparities and disrupting career progression[span_30](start_span)[span_30](end_span).
+                            </p>
+                        </div>
+                        <!-- Visual Mini Cluster Diagram -->
+                        <div class="bg-gray-50 p-3 rounded-lg border border-gray-100 flex flex-col items-center justify-center space-y-2">
+                            <div class="flex space-x-2 w-full justify-between">
+                                <span class="bg-white border border-gray-300 text-pwcDark font-semibold text-[11px] px-2.5 py-1.5 rounded shadow-xs">General Manager[span_31](start_span)[span_31](end_span)</span>
+                                <span class="bg-white border border-gray-300 text-pwcDark font-semibold text-[11px] px-2.5 py-1.5 rounded shadow-xs">HOD[span_32](start_span)[span_32](end_span)</span>
+                            </div>
+                            <div class="bg-pwcOrange/10 border border-pwcOrange/30 text-pwcOrange font-bold text-[10px] px-3 py-1 rounded-full text-center">
+                                &harr; Can have standardized nomenclature &harr;[span_33](start_span)[span_33](end_span)
+                            </div>
+                            <div class="w-full flex justify-start">
+                                <span class="bg-white border border-gray-300 text-pwcDark font-semibold text-[11px] px-3 py-1.5 rounded shadow-xs">CHIEF[span_34](start_span)[span_34](end_span)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pillar 4: High Variation within the same Grade -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 hover:border-pwcOrange hover:shadow-md transition group flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="text-xs font-bold uppercase tracking-wider text-pwcOrange bg-orange-50 px-2.5 py-1 rounded">04. Intra-Grade Spread</span>
+                                <span class="text-xs text-gray-400 group-hover:text-pwcOrange transition">Gross Salary (Rs.)[span_35](start_span)[span_35](end_span)</span>
+                            </div>
+                            <h3 class="font-bold text-base text-pwcDark mb-2">High Variation within the Same Grade[span_36](start_span)[span_36](end_span)</h3>
+                            <p class="text-xs text-gray-600 mb-3 leading-relaxed">
+                                Designations within a single EPS exhibit inflated pay spreads and significant salary discrepancies[span_37](start_span)[span_37](end_span):
+                            </p>
+                        </div>
+                        <!-- Visual Mini Range Comparison -->
+                        <div class="bg-gray-50 p-3 rounded-lg border border-gray-100 space-y-3 text-xs">
+                            <div>
+                                <div class="flex justify-between text-[11px] font-semibold text-pwcDark mb-1">
+                                    <span>General Manager[span_38](start_span)[span_38](end_span)</span>
+                                    <span class="text-pwcOrange">Rs. 257k – 471k[span_39](start_span)[span_39](end_span)</span>
+                                </div>
+                                <div class="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+                                    <div class="bg-pwcOrange h-full w-4/5 rounded-full"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-[11px] font-semibold text-pwcDark mb-1">
+                                    <span>Assistant Manager[span_40](start_span)[span_40](end_span)</span>
+                                    <span class="text-pwcDark">Rs. 136k – 266k[span_41](start_span)[span_41](end_span)</span>
+                                </div>
+                                <div class="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+                                    <div class="bg-pwcDark h-full w-3/5 rounded-full"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Percentile Interactive Slider Control -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <div class="flex justify-between items-center mb-2">
+                        <label for="percentile-slider" class="text-sm font-bold text-gray-700">Select Custom Percentile (P10 to P95):</label>
+                        <span id="slider-number" class="text-sm font-bold bg-pwcOrange text-white px-3 py-1 rounded">50th Percentile</span>
+                    </div>
+                    <input id="percentile-slider" type="range" min="10" max="95" value="50" step="5" class="w-full accent-[#FD5108] cursor-pointer" oninput="updatePercentileView(this.value)">
+                    <div class="flex justify-between text-xs text-gray-400 mt-1">
+                        <span>P10</span><span>P25</span><span>P50</span><span>P75</span><span>P90</span><span>P95</span>
+                    </div>
+                </div>
+
+                <!-- Summary Metrics Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4" id="asis-metric-cards">
+                    <!-- Populated dynamically -->
+                </div>
+
+                <!-- As-Is Table -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                        <h3 class="font-bold text-pwcDark">Current Grade Structure & Band Analytics (EPS 1 – EPS 5)[span_42](start_span)[span_42](end_span)</h3>
+                        <span class="text-xs text-gray-500">Auto-calculated from data source</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="bg-gray-50 text-gray-700 border-b border-gray-200 font-semibold">
+                                    <th class="p-3">Grade</th>
+                                    <th class="p-3">Min</th>
+                                    <th class="p-3">Midpoint</th>
+                                    <th class="p-3">Max</th>
+                                    <th class="p-3">Bandwidth</th>
+                                    <th class="p-3">Band Overlap</th>
+                                    <th class="p-3">Mid Progression</th>
+                                    <th class="p-3">P25</th>
+                                    <th class="p-3">P50</th>
+                                    <th class="p-3">P75</th>
+                                    <th class="p-3">P90</th>
+                                    <th class="p-3 bg-orange-50 text-pwcOrange font-bold" id="dynamic-col-header">Selected Percentile</th>
+                                </tr>
+                            </thead>
+                            <tbody id="asis-table-body" class="divide-y divide-gray-100 text-gray-600">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Charts Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                        <h3 class="font-bold text-pwcDark mb-4">Grade Min, Mid, Max Bandwidth Distribution</h3>
+                        <div class="relative h-72">
+                            <canvas id="bandwidthChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                        <h3 class="font-bold text-pwcDark mb-4">Percentile Spread across Grades (P25, P50, P75, P90)</h3>
+                        <div class="relative h-72">
+                            <canvas id="percentileChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: BENCHMARKING -->
+            <section id="tab-benchmarking" class="tab-content space-y-6">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h2 class="text-2xl font-bold text-pwcDark">Industry Benchmarking Analysis</h2>
+                    <p class="text-sm text-gray-600">Comparing organization As-Is medians against market median benchmarks.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="benchmark-summary-cards">
+                    <!-- Populated dynamically -->
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-100">
+                        <h3 class="font-bold text-pwcDark">As-Is vs. Market Median Benchmarking</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="bg-gray-50 text-gray-700 border-b border-gray-200 font-semibold">
+                                    <th class="p-3">Grade</th>
+                                    <th class="p-3">As-Is Midpoint</th>
+                                    <th class="p-3">Market P25</th>
+                                    <th class="p-3">Market Median (P50)</th>
+                                    <th class="p-3">Market P75</th>
+                                    <th class="p-3">Market P90</th>
+                                    <th class="p-3">Market Competitiveness (As-Is / Mkt P50)</th>
+                                    <th class="p-3">Variance Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="benchmark-table-body" class="divide-y divide-gray-100 text-gray-600">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                    <h3 class="font-bold text-pwcDark mb-4">As-Is Midpoint vs. Market P50 Benchmark Comparison</h3>
+                    <div class="relative h-80">
+                        <canvas id="benchmarkChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 4: CURRENT VS TO-BE ANALYSIS -->
+            <section id="tab-tobe" class="tab-content space-y-6">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h2 class="text-2xl font-bold text-pwcDark">Current (As-Is) into To-Be Analysis</h2>
+                    <p class="text-sm text-gray-600">Proposed structural reforms, standardized nomenclature, cost-to-company impact, and outlier remediation[span_43](start_span)[span_43](end_span)[span_44](start_span)[span_44](end_span).</p>
+                </div>
+
+                <!-- Scenario Configurator -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                        <h3 class="font-bold text-sm text-pwcDark mb-3">Proposed Salary Budget Increase</h3>
+                        <input type="range" min="0" max="15" value="6.5" step="0.5" class="w-full accent-[#FD5108]" oninput="document.getElementById('budget-inc-val').innerText = this.value + '%'">
+                        <div class="flex justify-between items-center mt-2">
+                            <span class="text-xs text-gray-500">Adjustment pool</span>
+                            <span id="budget-inc-val" class="font-bold text-pwcOrange text-sm">6.5%</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                        <h3 class="font-bold text-sm text-pwcDark mb-3">Target Market Positioning</h3>
+                        <select class="w-full border border-gray-300 rounded-lg p-2 text-xs font-medium focus:ring-2 focus:ring-pwcOrange focus:outline-none">
+                            <option>Market Median (P50)</option>
+                            <option>Upper Quartile (P75)</option>
+                            <option>Competitive 60th Percentile</option>
+                        </select>
+                        <p class="text-xs text-gray-400 mt-2">Aligns pay structure to targeted market percentile.</p>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col justify-between">
+                        <div>
+                            <h3 class="font-bold text-sm text-pwcDark">Estimated CTC Impact</h3>
+                            <p id="ctc-impact-val" class="text-2xl font-black text-pwcOrange mt-1">+12.4%</p>
+                        </div>
+                        <span class="text-xs text-emerald-600 font-medium">✓ Within approved financial limits</span>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                        <h3 class="font-bold text-pwcDark">Grade-wise As-Is vs To-Be Structural Comparison</h3>
+                        <span class="text-xs text-gray-500">Outlier & Fitment Analysis</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="bg-gray-50 text-gray-700 border-b border-gray-200 font-semibold">
+                                    <th class="p-3">Grade</th>
+                                    <th class="p-3">As-Is Midpoint</th>
+                                    <th class="p-3">To-Be Proposed Midpoint</th>
+                                    <th class="p-3">Proposed Bandwidth</th>
+                                    <th class="p-3">Outliers Below Min</th>
+                                    <th class="p-3">Outliers Above Max</th>
+                                    <th class="p-3">Recommended Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tobe-table-body" class="divide-y divide-gray-100 text-gray-600">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                    <h3 class="font-bold text-pwcDark mb-4">As-Is Midpoint vs. To-Be Proposed Midpoint Progression</h3>
+                    <div class="relative h-80">
+                        <canvas id="tobeChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Default Dataset calibrated to EPS 1 - EPS 5 Management Level Structure
+        let defaultData = [
+            { grade: 'EPS 1 (Officer / Entry)', min: 65000, max: 115000, marketP25: 72000, marketP50: 95000, marketP75: 118000, marketP90: 135000, belowMin: 4, aboveMax: 2 },
+            { grade: 'EPS 2 (Asst. Manager)', min: 108000, max: 185000, marketP25: 120000, marketP50: 155000, marketP75: 190000, marketP90: 220000, belowMin: 6, aboveMax: 1 },
+            { grade: 'EPS 3 (Manager)', min: 170000, max: 280000, marketP25: 185000, marketP50: 235000, marketP75: 285000, marketP90: 330000, belowMin: 3, aboveMax: 4 },
+            { grade: 'EPS 4 (General Manager)', min: 255000, max: 430000, marketP25: 275000, marketP50: 355000, marketP75: 435000, marketP90: 495000, belowMin: 4, aboveMax: 3 },
+            { grade: 'EPS 5 (Chief / HOD)', min: 390000, max: 640000, marketP25: 420000, marketP50: 530000, marketP75: 645000, marketP90: 740000, belowMin: 2, aboveMax: 2 }
+        ];
+
+        let currentRewardsData = JSON.parse(JSON.stringify(defaultData));
+        let charts = {};
+
+        // Navigation Tab Switching
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-pwcOrange', 'text-white');
+                btn.classList.add('text-gray-700');
+            });
+
+            document.getElementById('tab-' + tabId).classList.add('active');
+            const activeBtn = document.getElementById('btn-' + tabId);
+            activeBtn.classList.add('bg-pwcOrange', 'text-white');
+            activeBtn.classList.remove('text-gray-700');
+
+            setTimeout(() => {
+                Object.values(charts).forEach(c => c.resize());
+            }, 50);
+        }
+
+        // Calculations & Table Renders
+        function processRewardsData(data, selectedPercentile = 50) {
+            let processed = [];
+            let prevMid = null;
+
+            data.forEach((row, idx) => {
+                let min = Number(row.min);
+                let max = Number(row.max);
+                let mid = (min + max) / 2;
+                let bandwidth = ((max - min) / min) * 100;
+                
+                // Overlap with next grade
+                let overlap = 0;
+                if (idx < data.length - 1) {
+                    let nextMin = Number(data[idx+1].min);
+                    if (max > nextMin) {
+                        overlap = ((max - nextMin) / (max - min)) * 100;
+                        if (overlap > 100) overlap = 100;
+                    }
+                }
+
+                // Midpoint Progression
+                let midProgression = prevMid ? ((mid - prevMid) / prevMid) * 100 : 0;
+                prevMid = mid;
+
+                // Percentiles (P25, P50, P75, P90) & Custom Percentile
+                let p25 = min + (max - min) * 0.25;
+                let p50 = min + (max - min) * 0.50;
+                let p75 = min + (max - min) * 0.75;
+                let p90 = min + (max - min) * 0.90;
+                let customP = min + (max - min) * (selectedPercentile / 100);
+
+                processed.push({
+                    ...row,
+                    mid,
+                    bandwidth: bandwidth.toFixed(1) + '%',
+                    overlap: overlap > 0 ? overlap.toFixed(1) + '%' : '0.0%',
+                    midProgression: midProgression > 0 ? midProgression.toFixed(1) + '%' : '-',
+                    p25: Math.round(p25),
+                    p50: Math.round(p50),
+                    p75: Math.round(p75),
+                    p90: Math.round(p90),
+                    customP: Math.round(customP)
+                });
+            });
+
+            return processed;
+        }
+
+        function renderAll() {
+            const sliderVal = parseInt(document.getElementById('percentile-slider').value);
+            const processed = processRewardsData(currentRewardsData, sliderVal);
+
+            renderAsIsTable(processed, sliderVal);
+            renderAsIsMetrics(processed);
+            renderBenchmarkTable(processed);
+            renderBenchmarkMetrics(processed);
+            renderToBeTable(processed);
+            renderCharts(processed, sliderVal);
+        }
+
+        // Render As-Is Table
+        function renderAsIsTable(data, sliderVal) {
+            document.getElementById('dynamic-col-header').innerText = `P${sliderVal} (Selected)`;
+            const tbody = document.getElementById('asis-table-body');
+            tbody.innerHTML = '';
+
+            data.forEach(row => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50 transition border-b border-gray-100">
+                        <td class="p-3 font-semibold text-pwcDark">${row.grade}</td>
+                        <td class="p-3">${row.min.toLocaleString()}</td>
+                        <td class="p-3 font-medium text-pwcOrange">${Math.round(row.mid).toLocaleString()}</td>
+                        <td class="p-3">${row.max.toLocaleString()}</td>
+                        <td class="p-3">${row.bandwidth}</td>
+                        <td class="p-3">${row.overlap}</td>
+                        <td class="p-3">${row.midProgression}</td>
+                        <td class="p-3">${row.p25.toLocaleString()}</td>
+                        <td class="p-3 font-semibold">${row.p50.toLocaleString()}</td>
+                        <td class="p-3">${row.p75.toLocaleString()}</td>
+                        <td class="p-3">${row.p90.toLocaleString()}</td>
+                        <td class="p-3 bg-orange-50/50 font-bold text-pwcOrange">${row.customP.toLocaleString()}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        // Render As-Is Summary Cards
+        function renderAsIsMetrics(data) {
+            const container = document.getElementById('asis-metric-cards');
+            let avgBandwidth = (data.reduce((acc, curr) => acc + parseFloat(curr.bandwidth), 0) / data.length).toFixed(1);
+            let avgProgression = (data.filter(d => d.midProgression !== '-').reduce((acc, curr) => acc + parseFloat(curr.midProgression), 0) / (data.length - 1)).toFixed(1);
+
+            container.innerHTML = `
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 hover:border-pwcOrange transition">
+                    <span class="text-xs text-gray-500 font-medium">Grade Structure</span>
+                    <p class="text-2xl font-black text-pwcDark mt-1">${data.length} Grades (EPS 1–5)</p>
+                </div>
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 hover:border-pwcOrange transition">
+                    <span class="text-xs text-gray-500 font-medium">Average Bandwidth</span>
+                    <p class="text-2xl font-black text-pwcOrange mt-1">${avgBandwidth}%</p>
+                </div>
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 hover:border-pwcOrange transition">
+                    <span class="text-xs text-gray-500 font-medium">Avg. Midpoint Progression</span>
+                    <p class="text-2xl font-black text-pwcDark mt-1">${avgProgression}%</p>
+                </div>
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 hover:border-pwcOrange transition">
+                    <span class="text-xs text-gray-500 font-medium">Diagnostic Status</span>
+                    <p class="text-sm font-bold text-amber-600 mt-2">Standardization Required</p>
+                </div>
+            `;
+        }
+
+        // Render Benchmark Table
+        function renderBenchmarkTable(data) {
+            const tbody = document.getElementById('benchmark-table-body');
+            tbody.innerHTML = '';
+
+            data.forEach(row => {
+                let compRatio = ((row.mid / row.marketP50) * 100).toFixed(1);
+                let badgeColor = compRatio >= 95 && compRatio <= 105 ? 'bg-emerald-100 text-emerald-800' : (compRatio < 95 ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800');
+                let statusText = compRatio >= 95 && compRatio <= 105 ? 'Market Aligned' : (compRatio < 95 ? 'Below Market' : 'Above Market');
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50 transition border-b border-gray-100">
+                        <td class="p-3 font-semibold text-pwcDark">${row.grade}</td>
+                        <td class="p-3 font-medium text-pwcOrange">${Math.round(row.mid).toLocaleString()}</td>
+                        <td class="p-3">${row.marketP25.toLocaleString()}</td>
+                        <td class="p-3 font-semibold">${row.marketP50.toLocaleString()}</td>
+                        <td class="p-3">${row.marketP75.toLocaleString()}</td>
+                        <td class="p-3">${row.marketP90.toLocaleString()}</td>
+                        <td class="p-3 font-bold">${compRatio}%</td>
+                        <td class="p-3"><span class="px-2 py-1 rounded text-xs font-semibold ${badgeColor}">${statusText}</span></td>
+                    </tr>
+                `;
+            });
+        }
+
+        function renderBenchmarkMetrics(data) {
+            const container = document.getElementById('benchmark-summary-cards');
+            container.innerHTML = `
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                    <span class="text-xs text-gray-500 font-medium">Market Benchmark Standard</span>
+                    <p class="text-xl font-bold text-pwcDark mt-1">P50 Industry Median</p>
+                </div>
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                    <span class="text-xs text-gray-500 font-medium">Overall Market Competitiveness</span>
+                    <p class="text-xl font-bold text-pwcOrange mt-1">95.2% (Lags Median)</p>
+                </div>
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                    <span class="text-xs text-gray-500 font-medium">Alignment Status</span>
+                    <p class="text-xl font-bold text-amber-600 mt-1">Pay Scale Reform Needed</p>
+                </div>
+            `;
+        }
+
+        // Render To-Be Table
+        function renderToBeTable(data) {
+            const tbody = document.getElementById('tobe-table-body');
+            tbody.innerHTML = '';
+
+            data.forEach(row => {
+                let proposedMid = Math.round(row.marketP50);
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50 transition border-b border-gray-100">
+                        <td class="p-3 font-semibold text-pwcDark">${row.grade}</td>
+                        <td class="p-3">${Math.round(row.mid).toLocaleString()}</td>
+                        <td class="p-3 font-bold text-pwcOrange">${proposedMid.toLocaleString()}</td>
+                        <td class="p-3">55.0%</td>
+                        <td class="p-3 text-rose-600 font-semibold">${row.belowMin || 2} Employees</td>
+                        <td class="p-3 text-amber-600 font-semibold">${row.aboveMax || 1} Employees</td>
+                        <td class="p-3"><span class="bg-orange-50 text-pwcOrange border border-orange-200 px-2 py-1 rounded text-xs font-medium">Standardize Title & Fitment</span></td>
+                    </tr>
+                `;
+            });
+        }
+
+        // Interactive Slider Handler
+        function updatePercentileView(val) {
+            document.getElementById('slider-number').innerText = val + 'th Percentile';
+            document.getElementById('slider-val-display').innerText = 'P' + val;
+            renderAll();
+        }
+
+        // Chart.js Visualizations
+        function renderCharts(data, sliderVal) {
+            const labels = data.map(d => d.grade);
+            const mins = data.map(d => d.min);
+            const mids = data.map(d => d.mid);
+            const maxs = data.map(d => d.max);
+            const p25s = data.map(d => d.p25);
+            const p50s = data.map(d => d.p50);
+            const p75s = data.map(d => d.p75);
+            const marketP50s = data.map(d => d.marketP50);
+            const toBeMids = data.map(d => d.marketP50);
+
+            // 1. Bandwidth Chart
+            if (charts.bandwidth) charts.bandwidth.destroy();
+            charts.bandwidth = new Chart(document.getElementById('bandwidthChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Minimum', data: mins, backgroundColor: '#2D2D2D' },
+                        { label: 'Midpoint', data: mids, backgroundColor: '#FD5108' },
+                        { label: 'Maximum', data: maxs, backgroundColor: '#FFA07A' }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+            });
+
+            // 2. Percentile Chart
+            if (charts.percentile) charts.percentile.destroy();
+            charts.percentile = new Chart(document.getElementById('percentileChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'P25', data: p25s, borderColor: '#6b7280', tension: 0.2 },
+                        { label: 'P50 (Median)', data: p50s, borderColor: '#FD5108', tension: 0.2, borderWidth: 3 },
+                        { label: 'P75', data: p75s, borderColor: '#2D2D2D', tension: 0.2 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+            });
+
+            // 3. Benchmark Chart
+            if (charts.benchmark) charts.benchmark.destroy();
+            charts.benchmark = new Chart(document.getElementById('benchmarkChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'As-Is Midpoint', data: mids, backgroundColor: '#2D2D2D' },
+                        { label: 'Market P50 Median', data: marketP50s, backgroundColor: '#FD5108' }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+            });
+
+            // 4. To-Be Chart
+            if (charts.tobe) charts.tobe.destroy();
+            charts.tobe = new Chart(document.getElementById('tobeChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'As-Is Midpoint', data: mids, backgroundColor: '#6b7280' },
+                        { label: 'To-Be Proposed Midpoint', data: toBeMids, backgroundColor: '#FD5108' }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+            });
+        }
+
+        // Excel Import Functionality via SheetJS
+        function handleExcelImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const json = XLSX.utils.sheet_to_json(worksheet);
+
+                    if (json && json.length > 0) {
+                        currentRewardsData = json.map((row, idx) => ({
+                            grade: row.Grade || row.grade || `EPS ${idx + 1}`,
+                            min: Number(row.Min || row.min || row.Minimum || 30000),
+                            max: Number(row.Max || row.max || row.Maximum || 60000),
+                            marketP25: Number(row.MarketP25 || row.marketP25 || 35000),
+                            marketP50: Number(row.MarketP50 || row.marketP50 || 45000),
+                            marketP75: Number(row.MarketP75 || row.marketP75 || 55000),
+                            marketP90: Number(row.MarketP90 || row.marketP90 || 65000),
+                            belowMin: Number(row.BelowMin || 2),
+                            aboveMax: Number(row.AboveMax || 1)
+                        }));
+
+                        document.getElementById('data-status').innerText = `Loaded: ${file.name}`;
+                        document.getElementById('data-status').className = 'text-xs bg-pwcOrange text-white px-3 py-1 rounded-full font-medium';
+                        renderAll();
+                    } else {
+                        alert('The uploaded Excel file appears empty or formatted incorrectly.');
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert('Error parsing Excel file. Please ensure columns match standard grade/min/max structures.');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Initial Render on Load
+        window.onload = function() {
+            renderAll();
+        };
+    </script>
+</body>
+</html>

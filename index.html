@@ -296,7 +296,69 @@ function parseWorkbook(wb,fname){
   const gsh=sh.filter(s=>s!==emp&&!s.isBenchOnly&&s.gS>=9).sort((a,b)=>b.gS-a.gS)[0]||null;
   const bsh=sh.filter(s=>s!==emp&&s!==gsh&&s.mS>0).sort((a,b)=>b.mS-a.mS)[0]||null;
   if(!emp&&!gsh)throw new Error('Could not find client data (needs an Employee sheet with Grade & Base Salary, or a Client Grades sheet with Grade, Min & Max). If this file is a market survey, use the "Import Benchmark" button.');
+
+  /* ---- grade structure ---- */
+  const grades=[];const gidx={};
+  const addGrade=(name,o)=>{const k=gk(name);if(!k)return null;if(!gidx[k]){gidx[k]={grade:gname(name),...o,k};grades.push(gidx[k])}else Object.entries(o).forEach(([a,b])=>{if(gidx[k][a]==null&&b!=null)gidx[k][a]=b});return gidx[k]};
+  const gradeRows=(s,src)=>{const M=s.gM,gc=best(M,'grade')||{i:0,h:s.d.headers[0]};rep.sheets.push(src+': "'+s.n+'" ('+s.d.rows.length+' rows)');
+    ['grade','bg','min','max','mid','p25','p50','p75','p90','ma','mb','me'].forEach(f=>{const c=f==='grade'?gc:best(M,f);if(c&&!rep.map.some(x=>x[0]===FRIENDLY[f]))rep.map.push([FRIENDLY[f],c.h])});
+    s.d.rows.forEach(r=>{const nm=r[gc.i];if(nm===''||nm==null)return;const v=f=>{const c=best(M,f);return c?toNum(r[c.i])*(c.mon||1):undefined};let min=v('min'),max=v('max'),mid=v('mid');
+      if(min!=null&&max==null&&mid!=null)max=2*mid-min;if(max!=null&&min==null&&mid!=null)min=2*mid-max;
       let mb=v('mb');if(mb!=null&&mb<=1)mb*=100;const bc=best(M,'bg');
+      addGrade(nm,{min,max,bGrade:bc&&r[bc.i]!==''?String(r[bc.i]).trim():undefined,p25:v('p25'),p50:v('p50'),p75:v('p75'),p90:v('p90'),mAllow:v('ma'),mBonus:mb,mBen:v('me')})})};
+  if(gsh)gradeRows(gsh,'Grades');
+  else if(emp&&emp.gS>=9)gradeRows(emp,'Grades (inside employee sheet)');
+
+  /* ---- benchmarks ---- */
+  let benchmarks=[];
+  const mkBench=(label,o)=>{const p50=o.p50;if(p50==null)return null;return{bGrade:String(label).trim(),p25:o.p25??p50*.88,p50,p75:o.p75??p50*1.12,p90:o.p90??p50*1.25,mAllow:o.mAllow??p50*.1,mBonus:o.mBonus??10,mBen:o.mBen??p50*.12,partial:o.mAllow==null||o.mBonus==null||o.mBen==null}};
+  if(bsh){const M=bsh.gM,lc=best(M,'grade')||best(M,'bg')||{i:0};rep.sheets.push('Market benchmarks: "'+bsh.n+'" ('+bsh.d.rows.length+' levels)');
+    benchmarks=bsh.d.rows.map(r=>{const v=f=>{const c=best(M,f);return c?toNum(r[c.i])*(c.mon||1):undefined};let mb=v('mb');if(mb!=null&&mb<=1)mb*=100;return mkBench(r[lc.i],{p25:v('p25'),p50:v('p50'),p75:v('p75'),p90:v('p90'),mAllow:v('ma'),mBonus:mb,mBen:v('me')})}).filter(Boolean)}
+  else benchmarks=grades.filter(g=>g.p50!=null).map(g=>mkBench(g.grade,g)).filter(Boolean);
+  benchmarks.sort((a,b)=>a.p50-b.p50);
+  if(benchmarks.some(b=>b.partial))rep.warn.push('Some market allowance, bonus or benefit values were missing and have been estimated as a share of market P50.');
+
+  /* ---- employees ---- */
+  let emps=[];let dropped=0,unmapped=0;
+  if(emp){const M=emp.eM,d=emp.d;rep.sheets.push('Employees: "'+emp.n+'" ('+d.rows.length+' rows)');
+    const single=['id','grade','role','fn','gender','age','ten','base','bpct','bonus'],ml={};
+    const sel={};single.forEach(f=>{const c=best(M,f);if(c)sel[f]=c});
+    ['hous','trans','oa','med','ret','ins','ob'].forEach(f=>ml[f]=M.filter(x=>x.f===f));
+    const dropTotal=(gen,spec)=>{if(spec.some(f=>ml[f].length))ml[gen]=ml[gen].filter(c=>!/total|overall|sum/i.test(c.h))};dropTotal('oa',['hous','trans']);dropTotal('ob',['med','ret','ins']);
+    if(sel.bonus&&!sel.bpct&&sel.base){const bv=d.rows.map(r=>toNum(r[sel.bonus.i])).filter(x=>x!=null).sort((a,b)=>a-b),bs=d.rows.map(r=>toNum(r[sel.base.i])).filter(x=>x>0).sort((a,b)=>a-b);
+      if(bv.length&&bs.length&&bv[bv.length-1]<=100&&bs[Math.floor(bs.length/2)]>5000){sel.bpct=sel.bonus;delete sel.bonus;rep.warn.push('The "'+sel.bpct.h+'" column holds small values, so it was read as a bonus target %, not an amount.')}}
+    single.forEach(f=>{if(sel[f])rep.map.push([FRIENDLY[f],sel[f].h])});['hous','trans','oa','med','ret','ins','ob'].forEach(f=>{if(ml[f].length)rep.map.push([FRIENDLY[f],ml[f].map(c=>c.h).join(' + ')])});
+    if(M.some(x=>x.mon>1))rep.warn.push('Monthly columns were detected and annualised (x12).');
+    ['bonus','med','ret','hous','trans'].forEach(f=>{if(!(sel[f]||(ml[f]&&ml[f].length)))rep.miss.push(FRIENDLY[f])});
+    const sumCols=(r,cols)=>sum(cols.map(c=>(toNum(r[c.i])||0)*c.mon));
+    d.rows.forEach((r,i)=>{const base=sel.base?toNum(r[sel.base.i])*sel.base.mon:undefined,g=sel.grade?r[sel.grade.i]:'';if(base==null||isNaN(base)||base<=0||g===''||g==null){dropped++;return}
+      let bp=sel.bpct?toNum(r[sel.bpct.i]):undefined;if(bp!=null&&(bp>1||/%/.test(String(r[sel.bpct.i]))))bp/=100;
+      let bonus=sel.bonus?(toNum(r[sel.bonus.i])||0)*sel.bonus.mon:(bp?base*bp:0);
+      emps.push({id:String(sel.id?r[sel.id.i]:'E'+(i+1)),grade:g,role:String(sel.role&&r[sel.role.i]!==''?r[sel.role.i]:'Unspecified').trim(),fn:String(sel.fn&&r[sel.fn.i]!==''?r[sel.fn.i]:'All staff').trim(),gender:sel.gender?(c=>/^(f|w)/i.test(c)?'F':/^m/i.test(c)?'M':'')(String(r[sel.gender.i]).trim()):'',age:sel.age?(v=>v>=14&&v<=80?v:null)(toNum(r[sel.age.i])):null,ten:sel.ten?(v=>v>=0&&v<=50?v:null)(toNum(r[sel.ten.i])):null,base,
+        hous:sumCols(r,ml.hous),trans:sumCols(r,ml.trans),oth:sumCols(r,ml.oa),bpct:bp||0,bonus,med:sumCols(r,ml.med),ret:sumCols(r,ml.ret),ins:sumCols(r,ml.ins),obn:sumCols(r,ml.ob)})});
+    if(!sel.bonus&&sel.bpct)rep.warn.push('No actual bonus column found, so bonus is assumed paid at target.');
+    emps.forEach(e=>{const k=gk(e.grade);let g=gidx[k];if(!g){g=addGrade(e.grade,{derived:true});unmapped++}e.grade=g.grade});
+  }
+  if(!grades.length)throw new Error('No grades could be identified.');
+
+  /* ---- derive missing bands from pay ---- */
+  let derived=0;grades.forEach(g=>{if(g.min==null||g.max==null){const s=emps.filter(e=>e.grade===g.grade).map(e=>e.base).sort((a,b)=>a-b);if(s.length){g.min=s[0];g.max=s[s.length-1]>s[0]?s[s.length-1]:s[0]*1.2;g.derived=true;derived++}}});
+  const ok=grades.filter(g=>g.min!=null&&g.max!=null&&g.max>g.min);
+  if(!ok.length)throw new Error('Grade ranges could not be read or derived. Provide Min and Max columns or an employee sheet with Grade and Base Salary.');
+  if(derived)rep.warn.push(derived+' grade'+(derived>1?'s have':' has')+' no min/max in the file, so the band was derived from actual pay. Outlier results for these grades are not meaningful until real ranges are supplied.');
+  if(unmapped&&(gsh||(emp&&emp.gS>=9)))rep.warn.push(unmapped+' grade name'+(unmapped>1?'s':'')+' in the employee data did not match the grade sheet and were added as new grades.');
+  if(dropped)rep.warn.push(dropped+' employee row'+(dropped>1?'s were':' was')+' skipped (missing grade or base salary).');
+  if(!benchmarks.length)rep.warn.push('No market benchmark data found. Market values are estimated from grade midpoints until a benchmark sheet is imported.');
+  emps=emps.filter(e=>ok.some(g=>g.grade===e.grade));
+
+  /* ---- grade -> benchmark link ---- */
+  const out=ok.map(g=>{const mid=(g.min+g.max)/2;let b=null;
+    if(benchmarks.length){b=g.bGrade?benchmarks.find(x=>gk(x.bGrade)===gk(g.bGrade)):null;if(!b)b=benchmarks.find(x=>gk(x.bGrade)===gk(g.grade));if(!b)b=benchmarks.reduce((a,c)=>Math.abs(c.p50-mid)<Math.abs(a.p50-mid)?c:a,benchmarks[0])}
+    return{grade:g.grade,bGrade:b?b.bGrade:'',min:g.min,max:g.max,derived:!!g.derived}});
+  rep.nGrades=out.length;rep.nEmps=emps.length;rep.derived=derived;
+  return{grades:out,benchmarks,emps,rep};
+}
+
 function parseBenchmarkWorkbook(wb,fname){
   const sh=wb.SheetNames.map(n=>{const d=readSheet(wb.Sheets[n]);if(!d)return null;const gM=mapHeaders(d.headers,SCH_G,GEN_G);
     if(!has(gM,'grade')&&!has(gM,'bg')){const fb=detectGradeColFallback(d.headers,d.rows);if(fb)gM.push(fb)}
